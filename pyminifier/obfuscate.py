@@ -745,7 +745,6 @@ def obfuscate(module, tokens, options, name_generator=None, table=None):
         if options.obf_variables:
             variables = find_obfuscatables(
                 tokens, obfuscatable_variable)
-            print('obfuscating....', variables)
             for variable in variables:
                 replace_obfuscatables(
                     module,
