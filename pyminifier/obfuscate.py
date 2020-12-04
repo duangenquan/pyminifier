@@ -420,7 +420,7 @@ def obfuscate_variable(
             else:
                 if next_tok[1] != '=':
                     return return_replacement(replacement)
-        elif right_of_equal and not inside_parens:
+        elif right_of_equal: #and not inside_parens:
             return return_replacement(replacement)
 
 def obfuscate_function(tokens, index, replace, replacement, *args):

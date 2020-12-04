@@ -219,7 +219,7 @@ def enumerate_imports(tokens):
             from_import = True
         elif import_line:
             if token_type == tokenize.NAME and tokens[index+1][1] != 'as':
-                if not from_import:
+                if True: #not from_import:
                     if token_string not in reserved_words:
                         if token_string not in imported_modules:
                             imported_modules.append(token_string)
