@@ -121,10 +121,11 @@ def find_obfuscatables(tokens, obfunc, ignore_length=False):
     keyword_args = analyze.enumerate_keyword_args(tokens)
     global imported_modules
     imported_modules = analyze.enumerate_imports(tokens)
-    #print("imported_modules: %s" % imported_modules)
+    print("imported_modules: %s" % imported_modules)
     skip_line = False
     skip_next = False
     obfuscatables = []
+    ignores = ['self']
     for index, tok in enumerate(tokens):
         token_type = tok[0]
         if token_type == tokenize.NEWLINE:
@@ -140,6 +141,8 @@ def find_obfuscatables(tokens, obfunc, ignore_length=False):
             elif result == '__skipnext__':
                 skip_next = True
             elif result in obfuscatables:
+                pass
+            elif result in ignores:
                 pass
             else:
                 obfuscatables.append(result)
@@ -742,6 +745,7 @@ def obfuscate(module, tokens, options, name_generator=None, table=None):
         if options.obf_variables:
             variables = find_obfuscatables(
                 tokens, obfuscatable_variable)
+            print('obfuscating....', variables)
             for variable in variables:
                 replace_obfuscatables(
                     module,
