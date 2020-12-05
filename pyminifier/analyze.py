@@ -106,7 +106,7 @@ builtins = [
     'dir',
     'divmod',
     'dreload',
-    'enumerate',
+    #'enumerate',
     'eval',
     'execfile',
     'exit',
