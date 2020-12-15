@@ -164,7 +164,7 @@ builtins = [
     'staticmethod',
     'str',
     'sum',
-    'super',
+    #'super',
     'tuple',
     'type',
     'unichr',
