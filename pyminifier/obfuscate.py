@@ -125,7 +125,7 @@ def find_obfuscatables(tokens, obfunc, ignore_length=False):
     skip_line = False
     skip_next = False
     obfuscatables = []
-    ignores = ['self']
+    ignores = ['self', 'super']
     for index, tok in enumerate(tokens):
         token_type = tok[0]
         if token_type == tokenize.NEWLINE:
