@@ -150,7 +150,7 @@ builtins = [
     'print',
     'property',
     'quit',
-    'range',
+    #'range',
     'raw_input',
     'reduce',
     'reload',
