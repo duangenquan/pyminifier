@@ -125,7 +125,7 @@ def find_obfuscatables(tokens, obfunc, ignore_length=False):
     skip_line = False
     skip_next = False
     obfuscatables = []
-    ignores = ['self', 'super']
+    ignores = ['self', 'super'] + custom_ignores
     for index, tok in enumerate(tokens):
         token_type = tok[0]
         if token_type == tokenize.NEWLINE:
@@ -675,6 +675,8 @@ def obfuscate(module, tokens, options, name_generator=None, table=None):
     # Need a universal instance of our generator to avoid duplicates
     identifier_length = int(options.replacement_length)
     ignore_length = False
+    global custom_ignores
+    custom_ignores = options.custom_ignores.split(',')
     if not name_generator:
         if options.use_nonlatin:
             ignore_length = True
@@ -744,7 +746,7 @@ def obfuscate(module, tokens, options, name_generator=None, table=None):
                 )
         if options.obf_variables:
             variables = find_obfuscatables(
-                tokens, obfuscatable_variable)
+                tokens, obfuscatable_variable) 
             for variable in variables:
                 replace_obfuscatables(
                     module,

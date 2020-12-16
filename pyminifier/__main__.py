@@ -164,6 +164,14 @@ def main():
         ),
         metavar="<file path>"
     )
+    parser.add_option(
+        "--custom_ignores",
+        dest="custom_ignores",
+        default="",
+        help=(
+            "The customized ignore variables separated by commas."
+        )
+    )
     options, files = parser.parse_args()
     if not files:
         parser.print_help()
