@@ -5,7 +5,7 @@ __doc__ = """\
 A collection of functions for obfuscating code.
 """
 
-import os, sys, tokenize, keyword, sys, unicodedata
+import os, tokenize, keyword, sys, unicodedata
 from random import shuffle, choice
 from itertools import permutations
 
@@ -126,13 +126,35 @@ def find_obfuscatables(tokens, obfunc, ignore_length=False):
     skip_next = False
     obfuscatables = []
     ignores = ['self', 'super'] + custom_ignores
+    # Use lists for when we can handle nested classes.
+    class_names = []
+    class_definition_indents = []
+    indent = 0
     for index, tok in enumerate(tokens):
-        token_type = tok[0]
+        token_type, token_string, *_ = tok
         if token_type == tokenize.NEWLINE:
             skip_line = False
+        elif token_type == tokenize.INDENT:
+            indent += 1
+        elif token_type == tokenize.DEDENT:
+            indent -= 1
+            # Check if we left a class definition
+            if class_names and indent == class_definition_indents[-1]:
+                class_definition_indents.pop()
+                class_names.pop()
+
+        # Record that we are going into a class if we are.
+        if token_string == 'class':
+            class_definition_indents.append(indent)
+            class_names.append(tokens[index + 1][1])
+
         if skip_line:
             continue
-        result = obfunc(tokens, index, ignore_length=ignore_length)
+        # We can't obfuscate variables that are one indent in from the class
+        # definition because the class attributes need to be used by name.
+        if not (class_names and class_definition_indents[-1] + 1 == indent):
+            result = obfunc(tokens, index, ignore_length=ignore_length)
+
         if result:
             if skip_next:
                 skip_next = False
@@ -746,7 +768,7 @@ def obfuscate(module, tokens, options, name_generator=None, table=None):
                 )
         if options.obf_variables:
             variables = find_obfuscatables(
-                tokens, obfuscatable_variable) 
+                tokens, obfuscatable_variable)
             for variable in variables:
                 replace_obfuscatables(
                     module,
