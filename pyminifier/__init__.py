@@ -160,7 +160,9 @@ def obfuscate_file_text(
         local_name_generator: Iterator[str],
         options,
         prepend: Optional[str] = None,
-        table: Optional[List[Dict[Any, Any]]] = None) -> str:
+        table: Optional[List[Dict[Any, Any]]] = None,
+        ignore_length: int = 3
+) -> str:
     if table is None:
         table = [{}]
     tokens = token_utils.listified_tokenizer(source)
@@ -175,7 +177,8 @@ def obfuscate_file_text(
             tokens,
             options,
             name_generator=local_name_generator,
-            table=table
+            table=table,
+            ignore_length=ignore_length,
         )
     # Convert back to text
     result = ''

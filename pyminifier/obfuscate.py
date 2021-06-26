@@ -30,6 +30,9 @@ FUNC_REPLACEMENTS = {}
 CLASS_REPLACEMENTS = {}
 UNIQUE_REPLACEMENTS = {}
 
+_SKIPLINE_TOKENS = {"def", "class", 'if', 'elif', 'import'}
+_IMPORT_TOKENS = {"import", "from"}
+
 def obfuscation_machine(use_unicode=False, identifier_length=1):
     """
     A generator that returns short sequential combinations of lower and
@@ -98,7 +101,7 @@ def apply_obfuscation(source):
         replace_obfuscatables(tokens, obfuscate_class, _class, name_generator)
     return token_utils.untokenize(tokens)
 
-def find_obfuscatables(tokens, obfunc, ignore_length=False):
+def find_obfuscatables(tokens, obfunc, ignore_length: int=3):
     """
     Iterates over *tokens*, which must be an equivalent output to what
     tokenize.generate_tokens() produces, calling *obfunc* on each with the
@@ -114,8 +117,8 @@ def find_obfuscatables(tokens, obfunc, ignore_length=False):
         - **'__skipline__'**   Keep skipping tokens until a newline is reached.
         - **'__skipnext__'**   Skip the next token in the sequence.
 
-    If *ignore_length* is ``True`` then single-character obfuscatables will
-    be obfuscated anyway (even though it wouldn't save any space).
+    If *ignore_length* is > 0 any string longer than that length will be
+    obfuscated.
     """
     global keyword_args
     keyword_args = analyze.enumerate_keyword_args(tokens)
@@ -153,7 +156,8 @@ def find_obfuscatables(tokens, obfunc, ignore_length=False):
         # We can't obfuscate variables that are one indent in from the class
         # definition because the class attributes need to be used by name.
         if not (class_names and class_definition_indents[-1] + 1 == indent):
-            result = obfunc(tokens, index, ignore_length=ignore_length)
+            result = obfunc(tokens, index, class_names=class_names,
+                            ignore_length=ignore_length)
 
         if result:
             if skip_next:
@@ -173,7 +177,7 @@ def find_obfuscatables(tokens, obfunc, ignore_length=False):
     return obfuscatables
 
 # Note: I'm using 'tok' instead of 'token' since 'token' is a built-in module
-def obfuscatable_variable(tokens, index, ignore_length=False):
+def obfuscatable_variable(tokens, index, class_names=(), ignore_length=3):
     """
     Given a list of *tokens* and an *index* (representing the current position),
     returns the token string if it is a variable name that can be safely
@@ -182,8 +186,8 @@ def obfuscatable_variable(tokens, index, ignore_length=False):
     Returns '__skipline__' if the rest of the tokens on this line should be skipped.
     Returns '__skipnext__' if the next token should be skipped.
 
-    If *ignore_length* is ``True``, even variables that are already a single
-    character will be obfuscated (typically only used with the ``--nonlatin``
+    If *ignore_length* is > 0, then only variables with a length longer than
+    this will be obfuscated (typically only used with the ``--nonlatin``
     option).
     """
     tok = tokens[index]
@@ -212,22 +216,26 @@ def obfuscatable_variable(tokens, index, ignore_length=False):
             return None
     if prev_tok_string == 'import':
         return '__skipline__'
-    if prev_tok_string == ".":
+    if prev_tok_string == "." and not token_string.startswith('_'):
         return '__skipnext__'
     if prev_tok_string == "for":
         if len(token_string) > 2:
             return token_string
     if token_string == "for":
         return None
-    if token_string in keyword_args.keys():
+    if class_names:
+        full_fn_name = "{}.{}".format(class_names[-1], token_string)
+    else:
+        full_fn_name = token_string
+    if full_fn_name in keyword_args.keys():
         return None
-    if token_string in ["def", "class", 'if', 'elif', 'import']:
+
+    if token_string in _SKIPLINE_TOKENS:
         return '__skipline__'
     if prev_tok_type != tokenize.INDENT and next_tok_string != '=':
         return '__skipline__'
-    if not ignore_length:
-        if len(token_string) < 3:
-            return None
+    if ignore_length and len(token_string) < ignore_length:
+        return None
     if token_string in RESERVED_WORDS:
         return None
     return token_string
@@ -318,6 +326,8 @@ def replace_obfuscatables(module, tokens, obfunc, replace, name_generator, table
     inside_function = False
     indent = 0
     function_indent = 0
+    class_names = []
+    class_definition_indents = []
     replacement = next(name_generator)
     for index, tok in enumerate(tokens):
         token_type = tok[0]
@@ -333,10 +343,22 @@ def replace_obfuscatables(module, tokens, obfunc, replace, name_generator, table
             if inside_function and function_indent == indent:
                 function_indent = 0
                 inside_function = False
+            elif class_names and indent == class_definition_indents[-1]:
+                class_definition_indents.pop()
+                class_names.pop()
+
         if token_string == "def":
             function_indent = indent
-            function_name = tokens[index+1][1]
+            if class_names:
+                function_name = "{}.{}".format(
+                    class_names[-1], tokens[index + 1][1])
+            else:
+                function_name = tokens[index + 1][1]
             inside_function = function_name
+        elif token_string == 'class':
+            class_definition_indents.append(indent)
+            class_names.append(tokens[index + 1][1])
+
         result = obfunc(
             tokens,
             index,
@@ -406,7 +428,7 @@ def obfuscate_variable(
         next_tok = tokens[index+1]
     except IndexError: # Pretend it's a newline
         next_tok = (54, '\n', (1, 1), (1, 2), '#\n')
-    if token_string == "import":
+    if token_string in _IMPORT_TOKENS:
         return '__skipline__'
     if next_tok[1] == '.':
         if token_string in imported_modules:
@@ -425,7 +447,9 @@ def obfuscate_variable(
         return None
     if prev_tok_string == 'def':
         return '__skipnext__' # Don't want to touch functions
-    if token_string == replace and prev_tok_string != '.':
+    # If it is an attribute assume we can obscure it if it is private.
+    if (token_string == replace and
+            (prev_tok_string != '.' or token_string.startswith('_'))):
         if inside_function:
             if token_string not in keyword_args[inside_function]:
                 if not right_of_equal:
@@ -680,7 +704,8 @@ def obfuscate_global_import_methods(module, tokens, name_generator, table=None):
                     index += 6 # To make up for the six tokens we inserted
             index += 1
 
-def obfuscate(module, tokens, options, name_generator=None, table=None):
+def obfuscate(module, tokens, options, name_generator=None, table=None,
+              ignore_length=3):
     """
     Obfuscates *tokens* in-place.  *options* is expected to be the options
     variable passed through from pyminifier.py.
@@ -696,12 +721,12 @@ def obfuscate(module, tokens, options, name_generator=None, table=None):
     """
     # Need a universal instance of our generator to avoid duplicates
     identifier_length = int(options.replacement_length)
-    ignore_length = False
     global custom_ignores
     custom_ignores = options.custom_ignores.split(',')
     if not name_generator:
         if options.use_nonlatin:
-            ignore_length = True
+            # Obfuscate anything
+            ignore_length = 0
             if sys.version_info[0] == 3:
                 name_generator = obfuscation_machine(
                     use_unicode=True, identifier_length=identifier_length)
