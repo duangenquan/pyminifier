@@ -36,7 +36,7 @@ class ObfuscationTest(unittest.TestCase):
             obf_builtins=True,
             replacement_length=10,
             obf_variables=True,
-            custom_ignores="exec_output,output_foo,output_bar",
+            custom_ignores="exec_output",
         )
 
     def test_leave_class_attributes(self):
@@ -82,6 +82,8 @@ class ObfuscationTest(unittest.TestCase):
         self.assertTrue(exec_output.bar)
 
     def test_leave_class_attributes_with_kwargs(self):
+        self.options.custom_ignores = (
+            'output_foo,sum_foo,output_bar,sum_bar,output_testing')
         source = textwrap.dedent(
             """\
             # For some reason there has to be at least one import.
@@ -91,19 +93,32 @@ class ObfuscationTest(unittest.TestCase):
                 def __init__(self, bar_arg, bar_kwarg=None):
                     self._bar_arg = bar_arg
                     self.bar_kwarg = bar_kwarg
+                    
+                def sum(self):
+                    return self._bar_arg + self.bar_kwarg
 
             class Foo:
-                def __init__(self, foo_arg, foo_kwarg=None):
+                def __init__(self, foo_arg, foo_other_kwarg=None):
+                    tmp = 'some_random_assignment'
                     self._foo_arg = foo_arg
-                    self.foo_kwarg = foo_kwarg
+                    self.foo_kwarg = foo_other_kwarg
+                    
+                    
+                @property
+                def sum(self):
+                    return self._foo_arg + self.foo_kwarg
             
-            def test_function(fn_arg, fn_kwarg=10):
-                a = fn_arg
-                b = a + fn_arg
+            def test_function(testing_input, fn_kwarg=10):
+                a = testing_input
+                b = a + testing_input + fn_kwarg
                 return b
             
-            output_foo = Foo(10, 12)
-            output_bar = Bar(11, 13)
+            output_foo = Foo(10, foo_other_kwarg=12)
+            output_bar = Bar(bar_arg=11, bar_kwarg=13)
+            output_testing = test_function(output_foo.foo_kwarg, 
+                                           output_bar.bar_kwarg)
+            sum_foo = output_foo.sum
+            sum_bar = output_bar.sum()
             """
         )
         name_generator = obfuscate.obfuscation_machine(
@@ -128,7 +143,13 @@ class ObfuscationTest(unittest.TestCase):
         # noinspection PyUnresolvedReferences
         self.assertEqual(output_foo.foo_kwarg, 12)
         # noinspection PyUnresolvedReferences
+        self.assertEqual(sum_foo, 22)
+        # noinspection PyUnresolvedReferences
         self.assertTrue(output_bar.bar_kwarg, 13)
+        # noinspection PyUnresolvedReferences
+        self.assertEqual(sum_bar, 24)
+        # noinspection PyUnresolvedReferences
+        self.assertEqual(output_testing, 12 + 12 + 13)
 
 
 if __name__ == '__main__':

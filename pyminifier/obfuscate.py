@@ -32,6 +32,7 @@ UNIQUE_REPLACEMENTS = {}
 
 _SKIPLINE_TOKENS = {"def", "class", 'if', 'elif', 'import'}
 _IMPORT_TOKENS = {"import", "from"}
+_WHITESPACE_TOKENS = {tokenize.INDENT, tokenize.NEWLINE}
 
 def obfuscation_machine(use_unicode=False, identifier_length=1):
     """
@@ -232,7 +233,7 @@ def obfuscatable_variable(tokens, index, class_names=(), ignore_length=3):
 
     if token_string in _SKIPLINE_TOKENS:
         return '__skipline__'
-    if prev_tok_type != tokenize.INDENT and next_tok_string != '=':
+    if prev_tok_type not in _WHITESPACE_TOKENS and next_tok_string != '=':
         return '__skipline__'
     if ignore_length and len(token_string) < ignore_length:
         return None
