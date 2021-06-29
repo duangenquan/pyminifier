@@ -157,8 +157,7 @@ def find_obfuscatables(tokens, obfunc, ignore_length: int=3):
         # We can't obfuscate variables that are one indent in from the class
         # definition because the class attributes need to be used by name.
         if not (class_names and class_definition_indents[-1] + 1 == indent):
-            result = obfunc(tokens, index, class_names=class_names,
-                            ignore_length=ignore_length)
+            result = obfunc(tokens, index, ignore_length=ignore_length)
 
         if result:
             if skip_next:
@@ -178,7 +177,7 @@ def find_obfuscatables(tokens, obfunc, ignore_length: int=3):
     return obfuscatables
 
 # Note: I'm using 'tok' instead of 'token' since 'token' is a built-in module
-def obfuscatable_variable(tokens, index, class_names=(), ignore_length=3):
+def obfuscatable_variable(tokens, index, ignore_length=3):
     """
     Given a list of *tokens* and an *index* (representing the current position),
     returns the token string if it is a variable name that can be safely
@@ -194,7 +193,6 @@ def obfuscatable_variable(tokens, index, class_names=(), ignore_length=3):
     tok = tokens[index]
     token_type = tok[0]
     token_string = tok[1]
-    line = tok[4]
     if index > 0:
         prev_tok = tokens[index-1]
     else: # Pretend it's a newline (for simplicity)
