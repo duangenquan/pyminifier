@@ -217,7 +217,7 @@ def obfuscatable_variable(tokens, index, class_names=(), ignore_length=3):
             return None
     if prev_tok_string == 'import':
         return '__skipline__'
-    if prev_tok_string == "." and not token_string.startswith('_'):
+    if prev_tok_string == ".":
         return '__skipnext__'
     if prev_tok_string == "for":
         if len(token_string) > 2:
@@ -445,8 +445,7 @@ def obfuscate_variable(
     if prev_tok_string == 'def':
         return '__skipnext__' # Don't want to touch functions
     # If it is an attribute assume we can obscure it if it is private.
-    if (token_string == replace and
-            (prev_tok_string != '.' or token_string.startswith('_'))):
+    if token_string == replace and prev_tok_string != '.':
         if inside_function:
             if token_string not in keyword_args[inside_function]:
                 if not right_of_equal:
