@@ -224,11 +224,7 @@ def obfuscatable_variable(tokens, index, class_names=(), ignore_length=3):
             return token_string
     if token_string == "for":
         return None
-    if class_names:
-        full_fn_name = "{}.{}".format(class_names[-1], token_string)
-    else:
-        full_fn_name = token_string
-    if full_fn_name in keyword_args.keys():
+    if token_string in keyword_args.keys():
         return None
 
     if token_string in _SKIPLINE_TOKENS:

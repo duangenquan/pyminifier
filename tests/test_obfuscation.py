@@ -32,7 +32,7 @@ class ObfuscationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.options = _Options(
-            obfuscate=True,
+            obfuscate=False,
             obf_builtins=True,
             replacement_length=10,
             obf_variables=True,
@@ -54,9 +54,7 @@ class ObfuscationTest(unittest.TestCase):
                         return True
                         
                     return False
-                        
-                    
-                
+
                 baz = True
             
             exec_output = Foo()
@@ -150,6 +148,41 @@ class ObfuscationTest(unittest.TestCase):
         self.assertEqual(sum_bar, 24)
         # noinspection PyUnresolvedReferences
         self.assertEqual(output_testing, 12 + 12 + 13)
+
+    def test_handles_function_references_from_classes(self):
+        source = textwrap.dedent(
+            """\
+            # This is a test that no references to the function should get
+            # obfuscated. 
+            import unittest 
+            
+            def _private_module_function(testing):
+                return 10 + testing
+            
+            class Foo:
+                def plus_ten(self, input):
+                    inner_variable = [
+                        _private_module_function(i) for i in input]
+                    return inner_variable
+                    
+            exec_output = Foo()
+            """
+        )
+        name_generator = obfuscate.obfuscation_machine(
+            identifier_length=int(self.options.replacement_length))
+        module = 'test_module'
+
+        obfuscated_text = obfuscate_file_text(source, module, name_generator,
+                                              self.options)
+        self.assertIn('_private_module_function', obfuscated_text)
+        self.assertNotIn('inner_variable', obfuscated_text)
+
+        # If the class variables were obfuscated this raises an AttributeError
+        # This creates an exec_output variable of class Foo that we can test.
+        exec(obfuscated_text, globals())
+
+        # noinspection PyUnresolvedReferences
+        self.assertEqual(exec_output.plus_ten([1, 2]), [11, 12])
 
 
 if __name__ == '__main__':
