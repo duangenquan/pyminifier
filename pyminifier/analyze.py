@@ -183,16 +183,32 @@ def enumerate_keyword_args(tokens):
     """
     keyword_args = {}
     inside_function = False
+    class_names = []
+    class_definition_indents = []
+    indent = 0
     for index, tok in enumerate(tokens):
-        token_type = tok[0]
-        token_string = tok[1]
+        token_type, token_string, *_ = tok
         if token_type == tokenize.NEWLINE:
             inside_function = False
+        elif token_type == tokenize.INDENT:
+            indent += 1
+        elif token_type == tokenize.DEDENT:
+            indent -= 1
+            if class_names and indent == class_definition_indents[-1]:
+                class_definition_indents.pop()
+                class_names.pop()
+
         if token_type == tokenize.NAME:
             if token_string == "def":
-                function_name = tokens[index+1][1]
+                if class_names:
+                    function_name = f"{class_names[-1]}.{tokens[index+1][1]}"
+                else:
+                    function_name = tokens[index + 1][1]
                 inside_function = function_name
                 keyword_args.update({function_name: []})
+            elif token_string == 'class':
+                class_definition_indents.append(indent)
+                class_names.append(tokens[index + 1][1])
             elif inside_function:
                 if tokens[index+1][1] == '=': # keyword argument
                     keyword_args[function_name].append(token_string)

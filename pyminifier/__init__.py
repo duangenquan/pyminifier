@@ -5,8 +5,8 @@
 # For license information see LICENSE.txt
 
 # Meta
-__version__ = '2.2'
-__version_info__ = (2, 2)
+__version__ = '2.3'
+__version_info__ = (2, 3)
 __license__ = "GPLv3" # See LICENSE.txt
 __author__ = 'Dan McDougall <daniel.mcdougall@liftoffsoftware.com>'
 
@@ -69,6 +69,7 @@ something is broken.
 import os, sys, re, io
 from optparse import OptionParser
 from collections import Iterable
+from typing import Optional, Any, Dict, List, Iterator
 
 # Import our own modules
 from . import minification
@@ -152,6 +153,51 @@ def is_iterable(obj):
         return False
     return isinstance(obj, Iterable)
 
+
+def obfuscate_file_text(
+        source: str,
+        module: str,
+        local_name_generator: Iterator[str],
+        options,
+        prepend: Optional[str] = None,
+        table: Optional[List[Dict[Any, Any]]] = None,
+        ignore_length: int = 3
+) -> str:
+    if table is None:
+        table = [{}]
+    tokens = token_utils.listified_tokenizer(source)
+    if not options.nominify:  # Perform minification
+        source = minification.minify(tokens, options)
+    # Have to re-tokenize for obfuscation (it is quick):
+    tokens = token_utils.listified_tokenizer(source)
+    # Perform obfuscation if any of the related options were set
+    if local_name_generator:
+        obfuscate.obfuscate(
+            module,
+            tokens,
+            options,
+            name_generator=local_name_generator,
+            table=table,
+            ignore_length=ignore_length,
+        )
+    # Convert back to text
+    result = ''
+    if prepend:
+        result += prepend
+    result += token_utils.untokenize(tokens)
+    # Compress it if we were asked to do so
+    if options.bzip2:
+        result = compression.bz2_pack(result)
+    elif options.gzip:
+        result = compression.gz_pack(result)
+    elif lzma and options.lzma:
+        result = compression.lzma_pack(result)
+    # result += (
+    #     "# Created by pyminifier "
+    #     "(https://github.com/liftoff/pyminifier)\n")
+    return result
+
+
 def pyminify(options, files):
     """
     Given an *options* object (from `optparse.OptionParser` or similar),
@@ -223,35 +269,9 @@ def pyminify(options, files):
             module = os.path.split(sourcefile)[1]
             module = ".".join(module.split('.')[:-1])
             source = open(sourcefile).read()
-            tokens = token_utils.listified_tokenizer(source)
-            if not options.nominify: # Perform minification
-                source = minification.minify(tokens, options)
-            # Have to re-tokenize for obfucation (it is quick):
-            tokens = token_utils.listified_tokenizer(source)
-            # Perform obfuscation if any of the related options were set
-            if name_generator:
-                obfuscate.obfuscate(
-                    module,
-                    tokens,
-                    options,
-                    name_generator=name_generator,
-                    table=table
-                )
-            # Convert back to text
-            result = ''
-            if prepend:
-                result += prepend
-            result += token_utils.untokenize(tokens)
-            # Compress it if we were asked to do so
-            if options.bzip2:
-                result = compression.bz2_pack(result)
-            elif options.gzip:
-                result = compression.gz_pack(result)
-            elif lzma and options.lzma:
-                result = compression.lzma_pack(result)
-            #result += (
-            #    "# Created by pyminifier "
-            #    "(https://github.com/liftoff/pyminifier)\n")
+            # noinspection PyUnboundLocalVariable
+            result = obfuscate_file_text(
+                source, module, name_generator, options, prepend, table)
             # Either save the result to the output file or print it to stdout
             if not os.path.exists(options.destdir):
                 os.mkdir(options.destdir)
